@@ -1,0 +1,127 @@
+name: Build extension repo
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # A persistent release keystore is REQUIRED, not optional. Without one,
+      # every CI run would sign with a freshly-generated debug keystore, so
+      # each published APK would carry a different signing certificate --
+      # Android refuses to install a same-package "update" whose certificate
+      # doesn't match the one already installed, and index.pb/index.json's
+      # top-level signingKey would go stale on every single release.
+      # See README.md "Tạo keystore ký release" for how to generate one and
+      # add it here as KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS repo
+      # secrets (PKCS12 keystores reuse one password for both store and key,
+      # so no separate KEY_PASSWORD secret is needed).
+      - name: Require release keystore secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Missing KEYSTORE_BASE64 repo secret. A persistent release keystore is required so every release is signed with the same certificate (otherwise in-app updates break for every user on every release). See README.md for how to generate one and add it as a secret."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Compute signing fingerprint
+        id: fingerprint
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x scripts/print_signing_fingerprint.sh
+          FINGERPRINT=$(scripts/print_signing_fingerprint.sh "$RUNNER_TEMP/release.jks" "$KEY_ALIAS" "$KEYSTORE_PASSWORD")
+          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
+
+      - name: Run offline generator tests
+        run: python3 scripts/test_generate_index.py
+
+      - name: Build release APK
+        env:
+          CI_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          CI_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          CI_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          CI_KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Assemble repo folder
+        env:
+          SIGNING_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
+        run: |
+          set -e
+          PKG="eu.kanade.tachiyomi.extension.vi.cuutruyen"
+          NAME="Cứu Truyện"
+          LANG="vi"
+          WEBSITE="https://github.com/${GITHUB_REPOSITORY}"
+          RAW_BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/repo"
+
+          VERSION_CODE=$(grep -m1 'val extVersionCode' app/build.gradle.kts | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+          LIB_VERSION=$(grep -m1 'val libVersion' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION_NAME="${LIB_VERSION}.${VERSION_CODE}"
+
+          # Must always match `override val versionId` in CuuTruyen.kt: generate_index.py's
+          # source_id() re-derives Mihon's HttpSource.generateId() from name/lang/versionId,
+          # and the source it's advertising in index.pb has to hash to the exact same id the
+          # installed app computes for itself at runtime, or Mihon/Suwayomi will treat every
+          # existing install as a brand new, unrelated source (losing library/reading history)
+          # the moment versionId is ever bumped. Grepped here instead of hard-coded so a future
+          # bump can't be forgotten.
+          SOURCE_KT="app/src/main/java/eu/kanade/tachiyomi/extension/vi/cuutruyen/CuuTruyen.kt"
+          VERSION_ID=$(grep -m1 'override val versionId' "$SOURCE_KT" | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+          if [ -z "$VERSION_ID" ]; then
+            echo "::error::Could not read 'override val versionId' from $SOURCE_KT"
+            exit 1
+          fi
+
+          mkdir -p repo_out/apk repo_out/icon
+          cp app/build/outputs/apk/release/app-release.apk "repo_out/apk/${PKG}.apk"
+          cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png "repo_out/icon/${PKG}.png"
+
+          python3 scripts/generate_index.py \
+            --pkg "$PKG" --name "$NAME" --lang "$LANG" --nsfw 1 \
+            --code "$VERSION_CODE" --version "$VERSION_NAME" --lib-version "$LIB_VERSION" \
+            --version-id "$VERSION_ID" \
+            --website "$WEBSITE" --signing-fingerprint "$SIGNING_FINGERPRINT" \
+            --raw-base-url "$RAW_BASE_URL" --out-dir repo_out
+
+          # sanity: refuse to publish if the fingerprint didn't make it into the file
+          grep -q "$SIGNING_FINGERPRINT" repo_out/index.json
+
+      - name: Publish to `repo` branch
+        run: |
+          set -e
+          cd repo_out
+          git init -q
+          git checkout -q -b repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish repo: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push -f origin HEAD:repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
