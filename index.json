@@ -1,0 +1,33 @@
+{
+  "name": "Cứu Truyện",
+  "badgeLabel": "CT",
+  "signingKey": "5d5c91c2c9b4de5e71b0c616f1b91061418fc064ab2ca216a18ccc5266a2f49e",
+  "contact": {
+    "website": "https://github.com/q-Yuki-p/cuutruyen-mihon-extension",
+    "discord": null
+  },
+  "extensionList": {
+    "extensions": [
+      {
+        "name": "Cứu Truyện",
+        "packageName": "eu.kanade.tachiyomi.extension.vi.cuutruyen",
+        "resources": {
+          "apkUrl": "https://raw.githubusercontent.com/q-Yuki-p/cuutruyen-mihon-extension/repo/apk/eu.kanade.tachiyomi.extension.vi.cuutruyen.apk",
+          "iconUrl": "https://raw.githubusercontent.com/q-Yuki-p/cuutruyen-mihon-extension/repo/icon/eu.kanade.tachiyomi.extension.vi.cuutruyen.png"
+        },
+        "extensionLib": "1.6",
+        "versionCode": 1,
+        "versionName": "1.6.1",
+        "contentWarning": "CONTENT_WARNING_NSFW",
+        "sources": [
+          {
+            "id": 4989357807406366033,
+            "name": "Cứu Truyện",
+            "language": "vi",
+            "homeUrl": "https://cuutruyen.net"
+          }
+        ]
+      }
+    ]
+  }
+}
