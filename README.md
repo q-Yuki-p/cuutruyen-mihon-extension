@@ -27,6 +27,7 @@ Issues are up-for-grabs for any developer if there is no assigned user already.
 Contributions are welcome!
 
 Check out the repo's [issue backlog](https://github.com/q-Yuki-p/cuutruyen-mihon-extension/issues) for source requests and bug reports. 
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the technical notes behind this extension's design decisions.
 
 ## License
