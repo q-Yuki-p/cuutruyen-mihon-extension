@@ -1,6 +1,7 @@
 # Changelog — Phiên bản 1.6.3: Khắc phục lỗi tương thích Suwayomi-Server & xung đột Keiyoushi (2026-11-11)
 
-- **Sửa lỗi `NoClassDefFoundError: GeneratedSerializer$-CC` trên Suwayomi-Server:** Nâng `minSdk` từ 21 lên 26 (Android 8.0+, chuẩn chung của Mihon & Keiyoushi) để tắt hoàn toàn cơ chế interface desugaring của D8, hỗ trợ native Java 8 default interface methods cho `GeneratedSerializer`.
+- **Sửa lỗi `IncompatibleClassChangeError` & `GeneratedSerializer$-CC` trên Suwayomi-Server:** Đóng gói và xuất bản file JAR extension độc lập song song với file APK (`scripts/create_extension_jar.py`), đồng thời đăng ký `jarUrl` trong catalog (protobuf field 501). Suwayomi-Server sẽ tải trực tiếp JAR chứa bytecode JVM nguyên bản thay vì phải giải mã qua `dex2jar`.
+- **Nâng `minSdk` lên 26:** Đồng bộ chuẩn với Mihon và Keiyoushi, hỗ trợ native Java 8 default interface methods.
 - **Giải quyết xung đột cập nhật với repo Keiyoushi:** Nâng `versionCode` lên dải cao `999900003` (so với dải ~106000 của Keiyoushi), ngăn chặn hoàn toàn việc Mihon/Suwayomi báo extension cần cập nhật đè từ Keiyoushi.
 - **Dọn dẹp mã nguồn:** Loại bỏ các tài liệu đặc tả tạm thời (`specs/`, `.specify/`) trên nhánh `main`.
 

@@ -100,6 +100,7 @@ jobs:
 
           mkdir -p repo_out/apk repo_out/icon
           cp app/build/outputs/apk/release/app-release.apk "repo_out/apk/${PKG}.apk"
+          python3 scripts/create_extension_jar.py --variant release --output "repo_out/apk/${PKG}.jar"
           cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png "repo_out/icon/${PKG}.png"
 
           python3 scripts/generate_index.py \
@@ -111,6 +112,8 @@ jobs:
 
           # sanity: refuse to publish if the fingerprint didn't make it into the file
           grep -q "$SIGNING_FINGERPRINT" repo_out/index.json
+          grep -q "jarUrl" repo_out/index.json
+          test -f "repo_out/apk/${PKG}.jar"
 
       - name: Publish to `repo` branch
         run: |

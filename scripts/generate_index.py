@@ -122,6 +122,7 @@ def build_new_schema_dict(repo_name: str, badge_label: str, signing_key: str,
                     "resources": {
                         "apkUrl": f"{apk_base_url}/{ext.apk_filename}",
                         "iconUrl": f"{icon_base_url}/{ext.pkg}.png",
+                        "jarUrl": f"{apk_base_url}/{ext.pkg}.jar",
                     },
                     "extensionLib": ext.lib_version,
                     "versionCode": ext.version_code,
@@ -149,7 +150,7 @@ PB_CONTACT_WEBSITE, PB_CONTACT_DISCORD = 1, 2
 PB_EXTLIST_EXTENSIONS = 1
 PB_EXT_NAME, PB_EXT_PKG, PB_EXT_RESOURCES = 1, 2, 3
 PB_EXT_LIBVER, PB_EXT_VCODE, PB_EXT_VNAME, PB_EXT_WARNING, PB_EXT_SOURCES = 4, 5, 6, 7, 8
-PB_RES_APKURL, PB_RES_ICONURL = 1, 2
+PB_RES_APKURL, PB_RES_ICONURL, PB_RES_JARURL = 1, 2, 501
 PB_SRC_ID, PB_SRC_NAME, PB_SRC_LANG, PB_SRC_HOMEURL = 1, 2, 3, 4
 
 
@@ -165,6 +166,8 @@ def encode_new_schema_protobuf(store: dict) -> bytes:
             pb_string(PB_RES_APKURL, ext["resources"]["apkUrl"])
             + pb_string(PB_RES_ICONURL, ext["resources"]["iconUrl"])
         )
+        if ext["resources"].get("jarUrl"):
+            res_bytes += pb_string(PB_RES_JARURL, ext["resources"]["jarUrl"])
         src_payloads = []
         for src in ext["sources"]:
             src_bytes = (

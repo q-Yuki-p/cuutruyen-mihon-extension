@@ -106,6 +106,11 @@ class NewSchemaDictTests(unittest.TestCase):
         ext = self.store["extensionList"]["extensions"][0]
         self.assertEqual(ext["contentWarning"], "CONTENT_WARNING_NSFW")
 
+    def test_jar_url_present(self):
+        ext = self.store["extensionList"]["extensions"][0]
+        self.assertIn("jarUrl", ext["resources"])
+        self.assertTrue(ext["resources"]["jarUrl"].endswith(".jar"))
+
 
 class ProtobufRoundTripTests(unittest.TestCase):
     def setUp(self):

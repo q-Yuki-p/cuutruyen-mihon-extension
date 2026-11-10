@@ -34,5 +34,7 @@ jobs:
       - name: Run offline generator tests
         run: python3 scripts/test_generate_index.py
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Build debug APK & Extension JAR
+        run: |
+          ./gradlew :app:assembleDebug --stacktrace
+          python3 scripts/create_extension_jar.py --variant debug --output /tmp/test-debug.jar
