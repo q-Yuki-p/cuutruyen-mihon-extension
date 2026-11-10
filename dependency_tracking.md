@@ -19,7 +19,7 @@ Nhóm này ưu tiên sử dụng các bản phát hành ổn định (GA/Stable)
 | **actions/checkout** | `v7` | `v7` (v7.0.1) | Mới nhất | [GitHub Actions Checkout](https://github.com/actions/checkout) |
 | **actions/setup-java** | `v6` | `v6` (v6.2.0) | **Đã cập nhật** (bản cũ ghi v5 là sai) | [GitHub Actions Setup Java](https://github.com/actions/setup-java) |
 | **android-actions/setup-android** | `v4` | `v4` (v4.0.4) | Mới nhất | [GitHub Setup Android](https://github.com/android-actions/setup-android) |
-| **compileSdk / minSdk / targetSdk** | `36 / 21 / 36` | `36 / 21 / 36` | **Đã cập nhật** (Android 16, API 36) | [Android SDK Setup](https://developer.android.com/about/versions/16/setup-sdk) |
+| **compileSdk / minSdk / targetSdk** | `36 / 26 / 36` | `36 / 26 / 36` | **Đã cập nhật** (Android 16, minSdk 26 chuẩn Mihon/Keiyoushi, tắt desugar interface default methods để tương thích Suwayomi-Server) | [Android SDK Setup](https://developer.android.com/about/versions/16/setup-sdk) |
 | **JDK / Temurin** | `21` (CI) | `21` | **Đã cập nhật CI**. Bytecode target vẫn JVM 17 để chạy được trên host app | [Eclipse Temurin](https://github.com/actions/setup-java) |
 
 ---

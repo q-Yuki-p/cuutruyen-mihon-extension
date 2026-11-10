@@ -79,9 +79,10 @@ jobs:
           WEBSITE="https://github.com/${GITHUB_REPOSITORY}"
           RAW_BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/repo"
 
-          VERSION_CODE=$(grep -m1 'val extVersionCode' app/build.gradle.kts | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+          EXT_VERSION_CODE=$(grep -m1 'val extVersionCode' app/build.gradle.kts | sed -E 's/[^0-9]*([0-9]+).*/\1/')
           LIB_VERSION=$(grep -m1 'val libVersion' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
-          VERSION_NAME="${LIB_VERSION}.${VERSION_CODE}"
+          VERSION_NAME="${LIB_VERSION}.${EXT_VERSION_CODE}"
+          VERSION_CODE=$(grep -m1 'val apkVersionCode' app/build.gradle.kts | sed -E 's/[^0-9]*([0-9]+).*/\1/' || echo "$EXT_VERSION_CODE")
 
           # Must always match `override val versionId` in CuuTruyen.kt: generate_index.py's
           # source_id() re-derives Mihon's HttpSource.generateId() from name/lang/versionId,

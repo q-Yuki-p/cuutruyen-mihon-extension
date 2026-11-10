@@ -11,8 +11,10 @@ plugins {
 val extName = "Cứu Truyện"
 val pkgNameSuffix = "vi.cuutruyen"
 val extClass = ".CuuTruyen"
-val extVersionCode = 2
+val extVersionCode = 3
 val libVersion = "1.6"
+// Base versionCode 999900000 ensures Mihon/Suwayomi never prompts an update from Keiyoushi's repo (~106000)
+val apkVersionCode = 999900003
 
 // JitPack artifact version — tachiyomix README says "1.6" but the actual
 // published tag on JitPack is "1.6.0"; "1.6" resolves to 404.
@@ -24,9 +26,9 @@ android {
 
     defaultConfig {
         applicationId = "eu.kanade.tachiyomi.extension.$pkgNameSuffix"
-        minSdk = 21
+        minSdk = 26
         targetSdk = 36
-        versionCode = extVersionCode
+        versionCode = apkVersionCode
         versionName = "$libVersion.$extVersionCode"
 
         manifestPlaceholders["appName"] = "$extName"

@@ -1,3 +1,11 @@
+# Changelog — Phiên bản 1.6.3: Khắc phục lỗi tương thích Suwayomi-Server & xung đột Keiyoushi (2026-11-11)
+
+- **Sửa lỗi `NoClassDefFoundError: GeneratedSerializer$-CC` trên Suwayomi-Server:** Nâng `minSdk` từ 21 lên 26 (Android 8.0+, chuẩn chung của Mihon & Keiyoushi) để tắt hoàn toàn cơ chế interface desugaring của D8, hỗ trợ native Java 8 default interface methods cho `GeneratedSerializer`.
+- **Giải quyết xung đột cập nhật với repo Keiyoushi:** Nâng `versionCode` lên dải cao `999900003` (so với dải ~106000 của Keiyoushi), ngăn chặn hoàn toàn việc Mihon/Suwayomi báo extension cần cập nhật đè từ Keiyoushi.
+- **Dọn dẹp mã nguồn:** Loại bỏ các tài liệu đặc tả tạm thời (`specs/`, `.specify/`) trên nhánh `main`.
+
+---
+
 # Changelog — Nâng dependencies, thêm chế độ tiết kiệm data (2026-11-09)
 
 - Nâng AGP 9.5.1, Kotlin 2.4.21, Gradle 9.9.0, desugar 2.1.5, compile/targetSdk 36, CI dùng JDK 21 + `setup-java@v6`.
