@@ -22,6 +22,7 @@ data class CuuMangaShort(
     val id: Int,
     val name: String,
     val cover_url: String? = null,
+    val cover_mobile_url: String? = null,
 )
 
 @Serializable
@@ -34,6 +35,7 @@ data class CuuMangaDetails(
     val id: Int,
     val name: String,
     val cover_url: String? = null,
+    val cover_mobile_url: String? = null,
     val full_description: String? = null,
     val is_nsfw: Boolean = false,
     val author: CuuName = CuuName(),

@@ -4,12 +4,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Build
 import android.util.Base64
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 
 /**
  * Cứu Truyện scrambles some page images by chopping them into horizontal strips and
@@ -25,8 +28,32 @@ import java.io.ByteArrayOutputStream
 class CuuTruyenImageInterceptor : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request()
-        val response = chain.proceed(request)
+        var request = chain.request()
+        var firstError: IOException? = null
+        val firstResponse = try {
+            chain.proceed(request)
+        } catch (e: IOException) {
+            firstError = e
+            null
+        }
+
+        // Proxy giảm dung lượng (wsrv.nl) lỗi/quá tải -> tải lại ảnh gốc thay vì làm hỏng trang.
+        val src = request.url.queryParameter(SRC_PARAM)
+        val response = if (shouldFallbackWsrv(request.url.host, src, isIoException = firstError != null, httpCode = firstResponse?.code)) {
+            firstResponse?.close()
+            // Giữ lại tham số ct_* để ảnh gốc vẫn được ghép lại đúng.
+            val fallbackUrl = buildWsrvFallbackUrl(
+                srcUrl = src!!,
+                widthParam = request.url.queryParameter(WIDTH_PARAM),
+                heightParam = request.url.queryParameter(HEIGHT_PARAM),
+                drmParam = request.url.queryParameter(DRM_PARAM),
+            )
+            val fallback = fallbackUrl.toHttpUrlOrNull() ?: throw IOException("URL fallback không hợp lệ: $fallbackUrl")
+            request = request.newBuilder().url(fallback).build()
+            chain.proceed(request)
+        } else {
+            firstResponse ?: throw firstError!!
+        }
 
         val drmData = request.url.queryParameter(DRM_PARAM)
         val width = request.url.queryParameter(WIDTH_PARAM)?.toIntOrNull() ?: 0
@@ -36,24 +63,36 @@ class CuuTruyenImageInterceptor : Interceptor {
             return response
         }
 
-        // BitmapFactory.decodeStream() never closes the stream it's given, and this
-        // interceptor runs on every single page image request -- leaving it open would
-        // leak the underlying OkHttp connection on every page of every chapter read.
-        val original = response.body.byteStream().use { BitmapFactory.decodeStream(it) }
-            ?: return response
+        val rawBytes = response.body.bytes()
+        val original = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size)
+            ?: return response.newBuilder().body(rawBytes.toResponseBody(response.body.contentType())).build()
 
         val descrambled = try {
-            descramble(original, width, height, drmData)
+            val result = descramble(original, width, height, drmData)
+            if (result !== original) {
+                original.recycle()
+            }
+            result
         } catch (e: Exception) {
             original
         }
 
-        val output = ByteArrayOutputStream()
-        descrambled.compress(Bitmap.CompressFormat.JPEG, 95, output)
-        val bytes = output.toByteArray()
+        val bytes = try {
+            val output = ByteArrayOutputStream(128 * 1024)
+            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            descrambled.compress(format, OUTPUT_IMAGE_QUALITY, output)
+            output.toByteArray()
+        } finally {
+            descrambled.recycle()
+        }
 
         return response.newBuilder()
-            .body(bytes.toResponseBody("image/jpeg".toMediaType()))
+            .body(bytes.toResponseBody(OUTPUT_IMAGE_MIME.toMediaType()))
             .build()
     }
 
@@ -65,7 +104,10 @@ class CuuTruyenImageInterceptor : Interceptor {
         }
         val layout = String(xored, Charsets.UTF_8)
 
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        // Ảnh tải về có thể đã bị proxy thu nhỏ: co mọi tọa độ dải theo tỉ lệ (1.0 nếu là ảnh gốc).
+        val scale = source.width.toDouble() / width
+        val outHeight = Math.round(height * scale).toInt()
+        val output = Bitmap.createBitmap(source.width, outHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
         var sy = 0
@@ -79,8 +121,10 @@ class CuuTruyenImageInterceptor : Interceptor {
             val partHeight = parts[1].toIntOrNull() ?: return@forEach
             if (partHeight <= 0) return@forEach
 
-            val srcRect = Rect(0, sy, width, sy + partHeight)
-            val dstRect = Rect(0, dy, width, dy + partHeight)
+            val (srcTop, srcBottom) = scaleSpan(sy, partHeight, scale)
+            val (dstTop, dstBottom) = scaleSpan(dy, partHeight, scale)
+            val srcRect = Rect(0, srcTop, source.width, srcBottom.coerceAtMost(source.height))
+            val dstRect = Rect(0, dstTop, source.width, dstBottom)
             canvas.drawBitmap(source, srcRect, dstRect, null)
             sy += partHeight
         }
@@ -93,5 +137,26 @@ class CuuTruyenImageInterceptor : Interceptor {
         const val DRM_PARAM = "ct_drm"
         const val WIDTH_PARAM = "ct_w"
         const val HEIGHT_PARAM = "ct_h"
+        const val SRC_PARAM = "ct_src" // URL ảnh gốc, dùng để fallback khi proxy lỗi
+    }
+}
+
+class MirrorFallbackInterceptor(
+    private val proxyPrefProvider: () -> String = { "" },
+) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val req = chain.request()
+        return executeWithMirrorFallback(
+            url = req.url.toString(),
+            host = req.url.host,
+            proxyPref = proxyPrefProvider(),
+            getCode = { it.code },
+            closeResponse = { it.close() },
+            proceed = { targetUrl ->
+                val nextUrl = targetUrl.toHttpUrlOrNull() ?: throw IOException("URL mirror không hợp lệ: $targetUrl")
+                val nextReq = if (targetUrl == req.url.toString()) req else req.newBuilder().url(nextUrl).build()
+                chain.proceed(nextReq)
+            },
+        )
     }
 }

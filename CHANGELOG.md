@@ -1,3 +1,16 @@
+# Changelog — Nâng dependencies, thêm chế độ tiết kiệm data (2026-11-09)
+
+- Nâng AGP 9.5.1, Kotlin 2.4.21, Gradle 9.9.0, desugar 2.1.5, compile/targetSdk 36, CI dùng JDK 21 + `setup-java@v6`.
+- Nâng coroutines 1.11.0, serialization 1.11.0, OkHttp 5.5.0, jsoup 1.23.1 đúng bảng yêu cầu của tachiyomix 1.6.0.
+- Thêm tùy chọn **Chất lượng ảnh** (Nguồn / Cân bằng / Tiết kiệm): ảnh trang đi qua wsrv.nl (resize + WebP), đo thực tế
+  ~400 KB -> ~134 KB (Cân bằng) / ~89 KB (Tiết kiệm); bìa dùng `cover_mobile_url`. Proxy lỗi thì tự tải lại ảnh gốc.
+  Interceptor ghép lại các dải ảnh theo tỉ lệ khi ảnh đã bị thu nhỏ.
+- Ảnh sau ghép xuất WebP q85 thay JPEG q95.
+- Fallback miền đối xứng `cuutruyen.net`↔`hetcuutruyen.net`, `storage-bravo`↔`storage-charlie` (tắt khi bật proxy).
+- `rateLimit` 5 req/s; build debug không cần keystore và có workflow `pr.yml`.
+
+---
+
 # Changelog — Sửa lỗi mô tả 1 dòng, hoàn tất migrate AGP 9, cập nhật CI (2026-08-18)
 
 ## 1. Sửa lỗi mô tả truyện dồn hết vào 1 dòng (báo lỗi kèm screenshot)

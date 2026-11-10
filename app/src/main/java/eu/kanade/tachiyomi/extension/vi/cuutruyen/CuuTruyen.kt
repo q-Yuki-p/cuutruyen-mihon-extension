@@ -6,6 +6,7 @@ import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -21,6 +22,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Response
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.concurrent.TimeUnit
 
 /**
  * Kotlin/Mihon port of the Aidoku "vi.cuutruyen" source (https://cuutruyen.net), originally
@@ -47,6 +49,8 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
 
     override val client: OkHttpClient = super.client.newBuilder()
         .addInterceptor(CuuTruyenImageInterceptor())
+        .addInterceptor(MirrorFallbackInterceptor { preferences.getString(PREF_PROXY_KEY, "").orEmpty() })
+        .rateLimit(5, 1, TimeUnit.SECONDS)
         .build()
 
     // ------------------------------------------------------------------------------------
@@ -60,6 +64,13 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
     }
 
     override val baseUrl: String get() = apiBaseUrl()
+
+    private val imageQuality: ImageQuality
+        get() = ImageQuality.fromKey(preferences.getString(PREF_QUALITY_KEY, ImageQuality.ORIGINAL.key))
+
+    /** Chế độ tiết kiệm dùng bìa mobile chính thức (nhỏ hơn) thay vì bìa gốc. */
+    private fun coverUrl(full: String?, mobile: String?): String? =
+        (if (imageQuality != ImageQuality.ORIGINAL) mobile ?: full else full)?.let { rewriteStorageUrl(it) }
 
     private fun apiUrl(path: String) = "${apiBaseUrl()}$path"
 
@@ -127,7 +138,7 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
     private fun CuuMangaShort.toSManga() = SManga.create().apply {
         url = "/api/v2/mangas/$id"
         title = name
-        thumbnail_url = cover_url?.let { rewriteStorageUrl(it) }
+        thumbnail_url = coverUrl(cover_url, cover_mobile_url)
     }
 
     // ------------------------------------------------------------------------------------
@@ -175,7 +186,7 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
         val manga = SManga.create().apply {
             url = "/api/v2/mangas/${details.id}"
             title = details.name
-            thumbnail_url = details.cover_url?.let { rewriteStorageUrl(it) }
+            thumbnail_url = coverUrl(details.cover_url, details.cover_mobile_url)
             author = details.author.name.ifBlank { null }
             description = parseDescription(details.full_description)
             genre = tags.joinToString(", ")
@@ -241,8 +252,10 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
         ).awaitSuccess()
         val pages = response.parseAs<CuuResponse<CuuChapterPages>>().data.pages
 
+        val quality = imageQuality
         return pages.mapIndexed { index, p ->
-            val base = rewriteStorageUrl(p.image_url)
+            val original = rewriteStorageUrl(p.image_url)
+            val base = if (quality == ImageQuality.ORIGINAL) original else quality.proxyUrl(original)
             val sep = if (base.contains("?")) "&" else "?"
             val url = buildString {
                 append(base)
@@ -250,6 +263,7 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
                 append("${CuuTruyenImageInterceptor.WIDTH_PARAM}=${p.width ?: 0}")
                 append("&${CuuTruyenImageInterceptor.HEIGHT_PARAM}=${p.height ?: 0}")
                 append("&${CuuTruyenImageInterceptor.DRM_PARAM}=${encode(p.drm_data.orEmpty())}")
+                if (base != original) append("&${CuuTruyenImageInterceptor.SRC_PARAM}=${encode(original)}")
             }
             Page(index, imageUrl = url)
         }
@@ -260,6 +274,15 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
     // ------------------------------------------------------------------------------------
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        ListPreference(screen.context).apply {
+            key = PREF_QUALITY_KEY
+            title = "Chất lượng ảnh"
+            entries = ImageQuality.entries.map { it.label }.toTypedArray()
+            entryValues = ImageQuality.entries.map { it.key }.toTypedArray()
+            setDefaultValue(ImageQuality.ORIGINAL.key)
+            summary = "%s\nÁp dụng khi mở lại chương. Tiết kiệm qua proxy wsrv.nl, tự dùng ảnh gốc nếu proxy lỗi."
+        }.also { screen.addPreference(it) }
+
         ListPreference(screen.context).apply {
             key = PREF_DOMAIN_KEY
             title = "Miền (domain)"
@@ -282,6 +305,7 @@ class CuuTruyen : HttpSource(), ConfigurableSource {
     companion object {
         private const val PREF_DOMAIN_KEY = "pref_domain"
         private const val PREF_PROXY_KEY = "pref_proxy"
+        private const val PREF_QUALITY_KEY = "pref_image_quality"
         private const val DOMAIN_DEFAULT = "https://cuutruyen.net"
     }
 }

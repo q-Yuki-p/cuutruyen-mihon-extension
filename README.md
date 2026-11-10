@@ -11,6 +11,41 @@
 
 * Copy & paste the following URL: https://raw.githubusercontent.com/q-Yuki-p/cuutruyen-mihon-extension/repo/index.pb
 
+## Tùy chọn Chất lượng ảnh & Tiết kiệm data
+
+Trong phần **Cài đặt extension** của Mihon/Suwayomi (**Browse → Extensions → Cứu Truyện → Cài đặt → Chất lượng ảnh trang**), bạn có thể chọn một trong 3 mức chất lượng (đo thực tế trên trang chuẩn `1024×1450`, ảnh gốc ~400 KB):
+
+| Mức chất lượng | Dung lượng tải/trang | Mức tiết kiệm data | Cơ chế xử lý |
+|---|---|---|---|
+| `Nguồn (gốc, tốn data nhất)` *(mặc định)* | ~401 KB | 0% (bản gốc) | Tải ảnh gốc trực tiếp từ máy chủ ảnh Cứu Truyện. |
+| `Cân bằng (~-66% data)` | ~134 KB | ~-66% data | Thu nhỏ tối đa rộng `900px`, nén WebP `q70` qua proxy `wsrv.nl`. |
+| `Tiết kiệm (~-78% data)` | ~89 KB | ~-78% data | Thu nhỏ tối đa rộng `720px`, nén WebP `q60` qua proxy `wsrv.nl`, phù hợp khi dùng dữ liệu di động 3G/4G/5G hoặc máy ít dung lượng. |
+
+- Ở hai chế độ tiết kiệm data, ảnh bìa truyện tự động dùng bản nhẹ chính thức (`cover_mobile_url`). Nếu proxy `wsrv.nl` gặp sự cố hoặc quá tải, extension tự động tải lại ảnh gốc (kèm giải mã DRM đầy đủ) để trang truyện không bị lỗi.
+- Ảnh sau khi ghép dải DRM được xuất ra định dạng **WebP chất lượng 85** (thay vì JPEG q95 trước đây), giúp dung lượng lưu trên máy ở chế độ Nguồn giảm còn ~58% (~232 KB so với ~401 KB ảnh gốc) mà không làm phình file.
+
+## Tự động chuyển miền dự phòng (Mirror Fallback) & Giới hạn tần suất (Rate Limit)
+
+- **Mirror Fallback**: Tự động thử lại tối đa 1 lần sang miền đối ứng khi gặp lỗi kết nối hoặc HTTP `403`/`5xx`:
+  - **API**: `cuutruyen.net` ↔ `hetcuutruyen.net` *(lưu ý: `hetcuutruyen.net` có lớp bảo vệ Cloudflare nên khả năng tự vượt phụ thuộc vào bộ vượt Cloudflare tích hợp của ứng dụng Mihon/Suwayomi; tự động tắt fallback miền khi người dùng bật `Shin Proxy`)*.
+  - **Máy chủ ảnh (CDN)**: `storage-bravo.cuutruyen.net` ↔ `storage-charlie.cuutruyen.net`.
+- **Rate Limit**: Giới hạn tần suất `5 req/s` (`rateLimit(5, 1, TimeUnit.SECONDS)`) trên `OkHttpClient` để tránh bị máy chủ chặn khi làm mới thư viện lớn hoặc lật trang nhanh.
+
+## Kiểm tra & Phát triển cục bộ (Testing & Local Build)
+
+- Chạy bộ self-check Kotlin (ghép dải ảnh, URL proxy, fallback miền):
+  ```bash
+  ./scripts/run_kotlin_checks.sh
+  ```
+- Chạy kiểm tra script sinh index repo:
+  ```bash
+  python3 scripts/test_generate_index.py
+  ```
+- Build gói APK debug (không cần tạo `keystore.properties`):
+  ```bash
+  ./gradlew :app:assembleDebug
+  ```
+
 ## Requests
 
 To request a new source or bug fix, [create an issue](https://github.com/q-Yuki-p/cuutruyen-mihon-extension/issues/new/choose).
