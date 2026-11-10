@@ -1,0 +1,38 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Grant execute permissions
+        run: chmod +x gradlew scripts/run_kotlin_checks.sh
+
+      - name: Run Kotlin self-checks
+        run: ./scripts/run_kotlin_checks.sh
+
+      - name: Run offline generator tests
+        run: python3 scripts/test_generate_index.py
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace

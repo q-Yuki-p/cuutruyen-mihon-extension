@@ -11,7 +11,7 @@ plugins {
 val extName = "Cứu Truyện"
 val pkgNameSuffix = "vi.cuutruyen"
 val extClass = ".CuuTruyen"
-val extVersionCode = 1
+val extVersionCode = 2
 val libVersion = "1.6"
 
 // JitPack artifact version — tachiyomix README says "1.6" but the actual
@@ -20,12 +20,12 @@ val tachiyomixVersion = "1.6.0"
 
 android {
     namespace = "eu.kanade.tachiyomi.extension.$pkgNameSuffix"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "eu.kanade.tachiyomi.extension.$pkgNameSuffix"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 36
         versionCode = extVersionCode
         versionName = "$libVersion.$extVersionCode"
 
@@ -62,6 +62,8 @@ android {
         }
     }
 
+    val isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -71,14 +73,15 @@ android {
             // a same-package "update" whose certificate doesn't match the one already
             // on the device -- every user would need to uninstall+reinstall on every
             // release, losing their reading settings each time. See README.md.
-            if (!hasReleaseKeystore) {
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            } else if (isReleaseTask) {
                 throw GradleException(
                     "No release keystore configured. Create keystore.properties (local dev) " +
                         "or set CI_KEYSTORE_PATH/CI_KEYSTORE_PASSWORD/CI_KEY_ALIAS/CI_KEY_PASSWORD " +
                         "(CI) before running assembleRelease. See README.md \"Tạo keystore ký release\".",
                 )
             }
-            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -102,10 +105,10 @@ dependencies {
     // the exact compileOnly set the library itself specifies for 1.6 compatibility.
     compileOnly("com.github.mihonapp:tachiyomix:$tachiyomixVersion")
     compileOnly("com.github.mihonapp:injekt:91edab2317")
-    compileOnly("com.squareup.okhttp3:okhttp:5.4.0")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-    compileOnly("org.jsoup:jsoup:1.22.2")
+    compileOnly("com.squareup.okhttp3:okhttp:5.5.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+    compileOnly("org.jsoup:jsoup:1.23.1")
 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
